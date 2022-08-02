@@ -255,10 +255,7 @@ def get_comments(events, comments=None):
         comments: a list of dict(author=..., comment=..., timestamp=...),
                   ordered with the earliest comment first.
     """
-    if not comments:
-        comments = {}
-    else:
-        comments = {c['id']: c for c in comments}
+    comments = {c['id']: c for c in comments} if comments else {}
     comments = {}  # comment_id : comment
     for event, body, _timestamp in events:
         action = body.get('action')
@@ -308,8 +305,7 @@ def get_approvers(comments):
     approvers = []
     for comment in comments:
         if comment['author'] == 'k8s-merge-robot':
-            m = APPROVERS_RE.search(comment['comment'])
-            if m:
+            if m := APPROVERS_RE.search(comment['comment']):
                 approvers = m.group(1).replace('"', '').split(',')
     return approvers
 
@@ -339,10 +335,9 @@ def distill_events(events, distilled_events=None):
                 continue
             if action == 'created':
                 output.append(('comment', user, timestamp))
-        if event == 'pull_request_review':
-            if action == 'submitted':
-                # this is morally equivalent to a comment
-                output.append(('comment', user, timestamp))
+        if event == 'pull_request_review' and action == 'submitted':
+            # this is morally equivalent to a comment
+            output.append(('comment', user, timestamp))
         if event == 'pull_request':
             if action in ('opened', 'reopened', 'synchronize'):
                 output.append(('push', user, timestamp))
@@ -368,13 +363,15 @@ def evaluate_fsm(events, start, transitions):
     state_last = 0  # time of last transition into this state
     for action, user, timestamp in events:
         for state_before, state_after, condition in transitions:
-            if state_before is None or state_before == state:
-                if condition == action or (callable(condition) and condition(action, user)):
-                    if state_after != state:
-                        state_start = timestamp
-                    state = state_after
-                    state_last = timestamp
-                    break
+            if (state_before is None or state_before == state) and (
+                condition == action
+                or (callable(condition) and condition(action, user))
+            ):
+                if state_after != state:
+                    state_start = timestamp
+                state = state_after
+                state_last = timestamp
+                break
     return state, state_start, state_last
 
 
@@ -427,11 +424,11 @@ def calculate_attention(distilled_events, payload):
     for assignee in assignees:
         assignee_state, first, last = get_assignee_state(assignee, author, distilled_events)
         if assignee_state != 'waiting':
-            notify(assignee, '%s#%s#%s' % (assignee_state, first, last))
+            notify(assignee, f'{assignee_state}#{first}#{last}')
 
     author_state, first, last = get_author_state(author, distilled_events)
     if author_state != 'waiting':
-        notify(author, '%s#%s#%s' % (author_state, first, last))
+        notify(author, f'{author_state}#{first}#{last}')
 
     if payload.get('needs_rebase'):
         notify(author, 'needs rebase')

@@ -37,7 +37,7 @@ import time
 reAutoKey = re.compile('^config-(\\d{8})$')
 
 def call(cmd, **kwargs):
-    print('>>> %s' % cmd)
+    print(f'>>> {cmd}')
     return subprocess.run(
         cmd,
         check=True,
@@ -64,7 +64,7 @@ def main(args):
             keys = call(cmd).stdout.rstrip(";").split(";")
             matches = [key for key in keys if reAutoKey.match(key)]
             matches.sort(reverse=True)
-            if len(matches) == 0:
+            if not matches:
                 raise ValueError('The %s/%s secret does not contain any keys matching the "config-20200730" format. Please try again with --src-key set to the most recent key. Existing keys: %s' % (args.namespace, args.name, keys)) #pylint: disable=line-too-long
 
             args.src_key = matches[0]
@@ -72,22 +72,19 @@ def main(args):
         # This ensures that a second update on the same day will still have a
         # key to roll back to if needed.
         args.prune = args.src_key != args.dest_key
-        print('Automatic mode: --src-key=%s  --dest-key=%s' % (args.src_key, args.dest_key))
+        print(f'Automatic mode: --src-key={args.src_key}  --dest-key={args.dest_key}')
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        orig = '%s/original' % (tmpdir)
-        merged = '%s/merged' % (tmpdir)
+        orig = f'{tmpdir}/original'
+        merged = f'{tmpdir}/merged'
         # Copy the current secret contents into a temp file.
         cmd = 'kubectl --context="%s" get secret --namespace "%s" "%s" -o go-template="{{index .data \\"%s\\"}}" | base64 -d > %s' % (args.context, args.namespace, args.name, args.src_key, orig) #pylint: disable=line-too-long
         call(cmd)
 
         # Merge the existing and new kubeconfigs into another temp file.
         env = os.environ.copy()
-        env['KUBECONFIG'] = '%s:%s' % (orig, args.kubeconfig_to_merge)
-        call(
-            'kubectl config view --raw > %s' % (merged),
-            env=env,
-        )
+        env['KUBECONFIG'] = f'{orig}:{args.kubeconfig_to_merge}'
+        call(f'kubectl config view --raw > {merged}', env=env)
 
         # Update the secret with the merged config.
         if args.prune:
@@ -111,9 +108,8 @@ def validateArgs(args):
     if args.auto:
         if args.dest_key:
             raise ValueError("--dest-key must be omitted when --auto is used.")
-    else:
-        if not args.src_key or not args.dest_key:
-            raise ValueError("--src-key and --dest-key are required unless --auto is used.")
+    elif not args.src_key or not args.dest_key:
+        raise ValueError("--src-key and --dest-key are required unless --auto is used.")
 
 
 if __name__ == '__main__':

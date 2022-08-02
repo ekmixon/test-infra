@@ -133,7 +133,7 @@ class ClusterNameTest(unittest.TestCase):
         self.assertTrue(actual)
         self.assertNotIn(build, actual)
         if len(actual) > 32:  # Some firewall names consume half the quota
-            self.fail('Name should be short: %s' % actual)
+            self.fail(f'Name should be short: {actual}')
 
     def test_name_presubmit(self):
         """Return the build number if name is empty."""
@@ -335,14 +335,17 @@ class ScenarioTest(unittest.TestCase):  # pylint: disable=too-many-public-method
 
     def test_aws(self):
         temp = tempfile.NamedTemporaryFile()
-        args = kubernetes_e2e.parse_args([
-            '--aws',
-            '--cluster=foo',
-            '--aws-cluster-domain=test-aws.k8s.io',
-            '--aws-ssh=%s' % temp.name,
-            '--aws-pub=%s' % temp.name,
-            '--aws-cred=%s' % temp.name,
-            ])
+        args = kubernetes_e2e.parse_args(
+            [
+                '--aws',
+                '--cluster=foo',
+                '--aws-cluster-domain=test-aws.k8s.io',
+                f'--aws-ssh={temp.name}',
+                f'--aws-pub={temp.name}',
+                f'--aws-cred={temp.name}',
+            ]
+        )
+
         with Stub(kubernetes_e2e, 'check_env', self.fake_check_env):
             kubernetes_e2e.main(args)
 
@@ -366,14 +369,17 @@ class ScenarioTest(unittest.TestCase):  # pylint: disable=too-many-public-method
 
     def test_kops_aws(self):
         temp = tempfile.NamedTemporaryFile()
-        args = kubernetes_e2e.parse_args([
-            '--provider=aws',
-            '--deployment=kops',
-            '--cluster=foo.example.com',
-            '--aws-ssh=%s' % temp.name,
-            '--aws-pub=%s' % temp.name,
-            '--aws-cred=%s' % temp.name,
-            ])
+        args = kubernetes_e2e.parse_args(
+            [
+                '--provider=aws',
+                '--deployment=kops',
+                '--cluster=foo.example.com',
+                f'--aws-ssh={temp.name}',
+                f'--aws-pub={temp.name}',
+                f'--aws-cred={temp.name}',
+            ]
+        )
+
         with Stub(kubernetes_e2e, 'check_env', self.fake_check_env):
             kubernetes_e2e.main(args)
 
@@ -391,13 +397,16 @@ class ScenarioTest(unittest.TestCase):  # pylint: disable=too-many-public-method
 
     def test_kops_gce(self):
         temp = tempfile.NamedTemporaryFile()
-        args = kubernetes_e2e.parse_args([
-            '--provider=gce',
-            '--deployment=kops',
-            '--cluster=foo.example.com',
-            '--gce-ssh=%s' % temp.name,
-            '--gce-pub=%s' % temp.name,
-            ])
+        args = kubernetes_e2e.parse_args(
+            [
+                '--provider=gce',
+                '--deployment=kops',
+                '--cluster=foo.example.com',
+                f'--gce-ssh={temp.name}',
+                f'--gce-pub={temp.name}',
+            ]
+        )
+
         with Stub(kubernetes_e2e, 'check_env', self.fake_check_env):
             kubernetes_e2e.main(args)
 

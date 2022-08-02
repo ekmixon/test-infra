@@ -31,7 +31,8 @@ CLUSTER = 'prow'
 ZONE = 'us-central1-f'
 PROJECT = 'k8s-prow-builds'
 
-AUTH_TO_CLUSTER_COMMAND = 'gcloud container clusters get-credentials %s --project=%s --zone=%s' % (CLUSTER, PROJECT, ZONE)
+AUTH_TO_CLUSTER_COMMAND = f'gcloud container clusters get-credentials {CLUSTER} --project={PROJECT} --zone={ZONE}'
+
 
 # this should be 20% more than the hard eviction threshold
 # the grace period should be longer than the typical time for another pod to be cleaned up by sinker
@@ -57,8 +58,18 @@ def get_nodes():
 
 
 def run_on_node(node_name, command):
-    print("node: %s running: %s" % (node_name, command))
-    subprocess.call(['gcloud', 'compute', 'ssh', '--project='+PROJECT, '--zone='+ZONE, '--command='+command, node_name])
+    print(f"node: {node_name} running: {command}")
+    subprocess.call(
+        [
+            'gcloud',
+            'compute',
+            'ssh',
+            f'--project={PROJECT}',
+            f'--zone={ZONE}',
+            f'--command={command}',
+            node_name,
+        ]
+    )
 
 def main():
     if sys.argv[-1] != "--yes-i-accept-that-this-is-very-risky":

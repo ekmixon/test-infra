@@ -80,9 +80,7 @@ class ScenarioTest(unittest.TestCase):  # pylint: disable=too-many-public-method
         """fake base and pull sha."""
         if key == 'PULL_BASE_SHA':
             return '12345'
-        if key == 'PULL_PULL_SHA':
-            return '67890'
-        return os.getenv(key, default)
+        return '67890' if key == 'PULL_PULL_SHA' else os.getenv(key, default)
 
     @staticmethod
     def fake_version():
@@ -96,15 +94,7 @@ class ScenarioTest(unittest.TestCase):  # pylint: disable=too-many-public-method
             return changed
         if not changed:
             return selected
-        if not selected:
-            return changed
-
-        ret = []
-        for pkg in selected:
-            if pkg in changed:
-                ret.append(pkg)
-
-        return ret
+        return [pkg for pkg in selected if pkg in changed] if selected else changed
 
     @staticmethod
     def fake_changed_valid(_base, _pull):
@@ -182,9 +172,7 @@ class ScenarioTest(unittest.TestCase):  # pylint: disable=too-many-public-method
         """Make sure install is called as 1st scenario call."""
         with tempfile.NamedTemporaryFile(delete=False) as fp:
             install = fp.name
-        args = kubernetes_bazel.parse_args([
-            '--install=%s' % install,
-            ])
+        args = kubernetes_bazel.parse_args([f'--install={install}'])
         kubernetes_bazel.main(args)
 
         self.assertIn(install, self.callstack[0])

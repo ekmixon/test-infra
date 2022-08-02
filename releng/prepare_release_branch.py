@@ -38,21 +38,16 @@ class ToolError(Exception):
 
 def get_config_files(branch_path):
     print("Retrieving config files...")
-    files = glob.glob(os.path.join(branch_path, "*.yaml"))
-    return files
+    return glob.glob(os.path.join(branch_path, "*.yaml"))
 
 def has_correct_amount_of_configs(branch_path):
     print("Checking config count...")
     files = get_config_files(branch_path)
     if len(files) < min_config_count or len(files) > max_config_count:
         print(
-            "Expected between %s and %s yaml files in %s, but found %s" % (
-                min_config_count,
-                max_config_count,
-                branch_path,
-                len(files),
-                )
-            )
+            f"Expected between {min_config_count} and {max_config_count} yaml files in {branch_path}, but found {len(files)}"
+        )
+
         return False
     return True
 
@@ -78,13 +73,13 @@ def delete_stale_branch(branch_path, current_version):
     if os.path.exists(filepath):
         os.unlink(filepath)
     else:
-        print("the branch config (%s) does not exist" % filename)
+        print(f"the branch config ({filename}) does not exist")
 
 
 def rotate_files(rotator_bin, branch_path, current_version):
     print("Rotating files...")
     suffixes = ['beta', 'stable1', 'stable2', 'stable3']
-    for i in range(0, 3):
+    for i in range(3):
         filename = '%d.%d.yaml' % (current_version[0], current_version[1] - i)
         from_suffix = suffixes[i]
         to_suffix = suffixes[i+1]
@@ -118,13 +113,11 @@ def update_generated_config(path, latest_version):
         markers = config['k8sVersions'][s]
         markers['version'] = vs
         for j, arg in enumerate(markers['args']):
-            markers['args'][j] = re.sub(
-                r'latest(-\d+\.\d+)?', 'latest-%s' % vs, arg)
+            markers['args'][j] = re.sub(r'latest(-\d+\.\d+)?', f'latest-{vs}', arg)
 
         node = config['nodeK8sVersions'][s]
         for k, arg in enumerate(node['args']):
-            node['args'][k] = re.sub(
-                r'master|release-\d+\.\d+', 'release-%s' % vs, arg)
+            node['args'][k] = re.sub(r'master|release-\d+\.\d+', f'release-{vs}', arg)
         node['prowImage'] = node['prowImage'].rpartition('-')[0] + '-' + vs
 
     with open(path, 'w') as f:
@@ -155,7 +148,10 @@ def main():
 
     files = get_config_files(branch_path)
     if len(files) == 4:
-        print("There should be a maximum of %s release branch configs." % max_config_count)
+        print(
+            f"There should be a maximum of {max_config_count} release branch configs."
+        )
+
         print("Deleting the oldest config before rotation...")
 
         delete_stale_branch(branch_path, version)

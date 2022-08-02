@@ -55,18 +55,20 @@ class TestOutput:
     def overlaps(self, after, before):
         if self._end and after and self._end < after:
             return False
-        if self._start and before and self._start > before:
-            return False
-        return True
+        return not self._start or not before or self._start <= before
 
     def __len__(self):
         return len(self._lines)
 
     def __str__(self):
-        if not self._lines:
-            return '<empty>'
-        return 'Test %s->%s (%5d lines) %s' % (
-            self._start, self._end, len(self), self._it if self._it else '')
+        return (
+            (
+                'Test %s->%s (%5d lines) %s'
+                % (self._start, self._end, len(self), self._it or '')
+            )
+            if self._lines
+            else '<empty>'
+        )
 
 
 def _get_tests(log):
@@ -75,7 +77,7 @@ def _get_tests(log):
         line = line.rstrip()
         match = _LINE_RE.match(line)
         if not match:
-            raise Exception('line %s does not match' % line)
+            raise Exception(f'line {line} does not match')
         if '------------------------------' in line:
             ended_test = current_test
             current_test = TestOutput()
@@ -112,7 +114,7 @@ def main():
     with open(args.file) as log:
         for test in _get_tests(log):
             if test.overlaps(after, before):
-                print(str(test))
+                print(test)
 
 
 if __name__ == '__main__':

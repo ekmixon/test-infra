@@ -55,13 +55,15 @@ def collect(tables, stale_hours, influx_client):
             'modified_time': int(table._properties.get('lastModifiedTime')),
             'row_count': table.num_rows
         }
-        sbuf = table._properties.get('streamingBuffer')
-        if sbuf:
-            fields.update({
+        if sbuf := table._properties.get('streamingBuffer'):
+            fields |= {
                 'streaming_buffer_estimated_bytes': sbuf['estimatedBytes'],
                 'streaming_buffer_estimated_row_count': sbuf['estimatedRows'],
-                'streaming_buffer_oldest_entry_time': int(sbuf['oldestEntryTime']),
-            })
+                'streaming_buffer_oldest_entry_time': int(
+                    sbuf['oldestEntryTime']
+                ),
+            }
+
 
         hours_old = (time.time() - fields['modified_time'] / 1000) / (3600.0)
         if stale_hours and hours_old > stale_hours:

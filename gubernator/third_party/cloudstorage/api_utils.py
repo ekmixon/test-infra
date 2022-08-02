@@ -260,9 +260,8 @@ class RetryParams(object):
     self._request_id = os.getenv('REQUEST_LOG_ID')
 
   def __eq__(self, other):
-    if not isinstance(other, self.__class__):
-      return False
-    return self.__dict__ == other.__dict__
+    return (self.__dict__ == other.__dict__
+            if isinstance(other, self.__class__) else False)
 
   def __ne__(self, other):
     return not self.__eq__(other)
@@ -289,14 +288,11 @@ class RetryParams(object):
       valid_types.append(int)
 
     if type(val) not in valid_types:
-      raise TypeError(
-          'Expect type %s for parameter %s' % (val_type.__name__, name))
+      raise TypeError(f'Expect type {val_type.__name__} for parameter {name}')
     if val < 0:
-      raise ValueError(
-          'Value for parameter %s has to be greater than 0' % name)
+      raise ValueError(f'Value for parameter {name} has to be greater than 0')
     if not can_be_zero and val == 0:
-      raise ValueError(
-          'Value for parameter %s can not be 0' % name)
+      raise ValueError(f'Value for parameter {name} can not be 0')
     return val
 
   def belong_to_current_request(self):

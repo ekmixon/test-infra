@@ -46,16 +46,20 @@ def check_build_exists(gcs, suffix, fast):
     """ check if a k8s build with same version
         already exists in remote path
     """
+    """ check if a k8s build with same version
+        already exists in remote path
+    """
     if not os.path.exists('hack/print-workspace-status.sh'):
         print >>sys.stderr, 'hack/print-workspace-status.sh not found, continue'
         return False
 
     version = ''
     try:
-        match = re.search(
+        if match := re.search(
             r'gitVersion ([^\n]+)',
-            check_output('hack/print-workspace-status.sh')
-        )
+            check_output('hack/print-workspace-status.sh'),
+        ):
+            version = match[1]
         if match:
             version = match.group(1)
     except subprocess.CalledProcessError as exc:
@@ -66,7 +70,7 @@ def check_build_exists(gcs, suffix, fast):
     if version:
         if not gcs:
             gcs = 'k8s-release-dev'
-        gcs = 'gs://' + gcs
+        gcs = f'gs://{gcs}'
         mode = 'ci'
         if fast:
             mode += '/fast'
@@ -75,7 +79,9 @@ def check_build_exists(gcs, suffix, fast):
         gcs = os.path.join(gcs, mode, version)
         try:
             check_no_stdout('gsutil', 'ls', gcs)
-            check_no_stdout('gsutil', 'ls', gcs + "/kubernetes.tar.gz")
+            check_no_stdout('gsutil', 'ls', f"{gcs}/kubernetes.tar.gz")
+            check_no_stdout('gsutil', 'ls', f"{gcs}/bin")
+            return True
             check_no_stdout('gsutil', 'ls', gcs + "/bin")
             return True
         except subprocess.CalledProcessError as exc:

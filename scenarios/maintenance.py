@@ -32,7 +32,7 @@ def check(*cmd):
 def main():
     """update gcloud for Jenkins vms"""
     host = os.environ.get('HOSTNAME')
-    if host == 'jenkins-master' or host == 'pull-jenkins-master':
+    if host in ['jenkins-master', 'pull-jenkins-master']:
         check('sudo', 'gcloud', 'components', 'update')
         check('sudo', 'gcloud', 'components', 'update', 'beta')
         check('sudo', 'gcloud', 'components', 'update', 'alpha')

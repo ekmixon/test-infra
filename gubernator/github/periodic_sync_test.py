@@ -78,7 +78,7 @@ class SyncTest(main_test.TestBase):
                              headers, _request, response, **_kwargs):
         assert method == 'GET'
         assert headers[0].key() == 'Authorization'
-        assert headers[0].value() == 'token ' + TOKEN
+        assert headers[0].value() == f'token {TOKEN}'
         path = url[url.find('.com')+4:]
         content, response_headers = self.gh_data[path]
         response.set_content(json.dumps(content))
@@ -100,22 +100,23 @@ class SyncTest(main_test.TestBase):
 
         base_url = '/repos/a/b/pulls?state=open&per_page=100'
         def make_headers(page):
-            frag = '<https://api.github.com%s' % base_url
+            frag = f'<https://api.github.com{base_url}'
             link = '%s&page=4>; rel="last"' % frag
             if page < 4:
                 link = '%s&page=%d>; rel="next", %s' % (frag, page + 1, link)
             if page > 1:
                 link = '%s&page=%d>; rel="prev", %s' % (frag, page - 1, link)
-            print link
+            frag = '<https://api.github.com%s' % base_url
             return {'Link': link}
 
         prs = [pr_data(n) for n in range(400)]
         self.gh_data = {
-            base_url:             (prs[:100], make_headers(1)),
-            base_url + '&page=2': (prs[100:200], make_headers(2)),
-            base_url + '&page=3': (prs[200:300], make_headers(3)),
-            base_url + '&page=4': (prs[300:], make_headers(4)),
+            base_url: (prs[:100], make_headers(1)),
+            f'{base_url}&page=2': (prs[100:200], make_headers(2)),
+            f'{base_url}&page=3': (prs[200:300], make_headers(3)),
+            f'{base_url}&page=4': (prs[300:], make_headers(4)),
         }
+
 
         got_prs = periodic_sync.get_prs_from_github(TOKEN, 'a/b')
         got_pr_nos = [pr['number'] for pr in got_prs]

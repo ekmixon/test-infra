@@ -113,7 +113,7 @@ def check_env(env, *cmd):
 
 def kubekins(tag):
     """Return full path to kubekins-e2e:tag."""
-    return 'gcr.io/k8s-staging-test-infra/kubekins-e2e:%s' % tag
+    return f'gcr.io/k8s-staging-test-infra/kubekins-e2e:{tag}'
 
 def parse_env(env):
     """Returns (FOO, BAR=MORE) for FOO=BAR=MORE."""
@@ -135,9 +135,9 @@ class LocalMode(object):
         self.os_env = []
         self.env_files = []
         self.add_environment(
-            'HOME=%s' % workspace,
-            'WORKSPACE=%s' % workspace,
-            'PATH=%s' % os.getenv('PATH'),
+            f'HOME={workspace}',
+            f'WORKSPACE={workspace}',
+            f"PATH={os.getenv('PATH')}",
         )
 
     def add_environment(self, *envs):
@@ -178,9 +178,9 @@ class LocalMode(object):
         shutil.copy(cred, aws_cred)
 
         self.add_environment(
-            'AWS_SSH_PRIVATE_KEY_FILE=%s' % priv,
-            'AWS_SSH_PUBLIC_KEY_FILE=%s' % pub,
-            'AWS_SHARED_CREDENTIALS_FILE=%s' % cred,
+            f'AWS_SSH_PRIVATE_KEY_FILE={priv}',
+            f'AWS_SSH_PUBLIC_KEY_FILE={pub}',
+            f'AWS_SHARED_CREDENTIALS_FILE={cred}',
         )
 
     def add_aws_role(self, profile, arn):
@@ -200,8 +200,8 @@ class LocalMode(object):
         shutil.copy(priv, gce_ssh)
         shutil.copy(pub, gce_pub)
         self.add_environment(
-            'JENKINS_GCE_SSH_PRIVATE_KEY_FILE=%s' % gce_ssh,
-            'JENKINS_GCE_SSH_PUBLIC_KEY_FILE=%s' % gce_pub,
+            f'JENKINS_GCE_SSH_PRIVATE_KEY_FILE={gce_ssh}',
+            f'JENKINS_GCE_SSH_PUBLIC_KEY_FILE={gce_pub}',
         )
 
     @staticmethod
@@ -240,31 +240,28 @@ def cluster_name(cluster, tear_down_previous=False):
     # could've got evicted midway (see #7673).
     job_type = os.getenv('JOB_TYPE')
     if job_type == 'batch':
-        suffix = 'batch-%s' % os.getenv('BUILD_ID', 0)
+        suffix = f"batch-{os.getenv('BUILD_ID', 0)}"
     elif job_type == 'presubmit' and tear_down_previous:
-        suffix = '%s' % os.getenv('PULL_NUMBER', 0)
+        suffix = f"{os.getenv('PULL_NUMBER', 0)}"
     else:
-        suffix = '%s' % os.getenv('BUILD_ID', 0)
+        suffix = f"{os.getenv('BUILD_ID', 0)}"
     if len(suffix) > 10:
         suffix = hashlib.md5(suffix).hexdigest()[:10]
     job_hash = hashlib.md5(os.getenv('JOB_NAME', '')).hexdigest()[:5]
-    return 'e2e-%s-%s' % (suffix, job_hash)
+    return f'e2e-{suffix}-{job_hash}'
 
 
 # TODO(krzyzacy): Move this into kubetest
 def build_kops(kops, mode):
     """Build kops, set kops related envs."""
-    if not os.path.basename(kops) == 'kops':
+    if os.path.basename(kops) != 'kops':
         raise ValueError(kops)
     version = 'pull-' + check_output('git', 'describe', '--always').strip()
     job = os.getenv('JOB_NAME', 'pull-kops-e2e-kubernetes-aws')
-    gcs = 'gs://kops-ci/pulls/%s' % job
-    gapi = 'https://storage.googleapis.com/kops-ci/pulls/%s' % job
-    mode.add_environment(
-        'KOPS_BASE_URL=%s/%s' % (gapi, version),
-        'GCS_LOCATION=%s' % gcs
-        )
-    check('make', 'gcs-publish-ci', 'VERSION=%s' % version, 'GCS_LOCATION=%s' % gcs)
+    gcs = f'gs://kops-ci/pulls/{job}'
+    gapi = f'https://storage.googleapis.com/kops-ci/pulls/{job}'
+    mode.add_environment(f'KOPS_BASE_URL={gapi}/{version}', f'GCS_LOCATION={gcs}')
+    check('make', 'gcs-publish-ci', f'VERSION={version}', f'GCS_LOCATION={gcs}')
 
 
 def set_up_kops_gce(workspace, args, mode, cluster, runner_args):
@@ -283,13 +280,15 @@ def set_up_kops_gce(workspace, args, mode, cluster, runner_args):
         'us-central1-f',
     ])
 
-    runner_args.extend([
-        '--kops-cluster=%s' % cluster,
-        '--kops-zones=%s' % zones,
-        '--kops-state=%s' % args.kops_state_gce,
-        '--kops-nodes=%s' % args.kops_nodes,
-        '--kops-ssh-key=%s' % gce_ssh,
-    ])
+    runner_args.extend(
+        [
+            f'--kops-cluster={cluster}',
+            f'--kops-zones={zones}',
+            f'--kops-state={args.kops_state_gce}',
+            f'--kops-nodes={args.kops_nodes}',
+            f'--kops-ssh-key={gce_ssh}',
+        ]
+    )
 
 
 def set_up_kops_aws(workspace, args, mode, cluster, runner_args):
@@ -316,29 +315,29 @@ def set_up_kops_aws(workspace, args, mode, cluster, runner_args):
         # logic
         zones = args.kops_zones or random.choice(DEFAULT_AWS_ZONES)
         regions = ','.join([zone[:-1] for zone in zones.split(',')])
-        runner_args.extend(['--kops-zones=%s' % zones])
-        mode.add_environment(
-          'KOPS_REGIONS=%s' % regions,
-        )
+        runner_args.extend([f'--kops-zones={zones}'])
+        mode.add_environment(f'KOPS_REGIONS={regions}')
 
     mode.add_environment(
-      'AWS_PROFILE=%s' % profile,
-      'AWS_DEFAULT_PROFILE=%s' % profile,
+        f'AWS_PROFILE={profile}', f'AWS_DEFAULT_PROFILE={profile}'
     )
 
+
     if args.aws_cluster_domain:
-        cluster = '%s.%s' % (cluster, args.aws_cluster_domain)
+        cluster = f'{cluster}.{args.aws_cluster_domain}'
 
     # AWS requires a username (and it varies per-image)
     ssh_user = args.kops_ssh_user or 'admin'
 
-    runner_args.extend([
-        '--kops-cluster=%s' % cluster,
-        '--kops-state=%s' % args.kops_state,
-        '--kops-nodes=%s' % args.kops_nodes,
-        '--kops-ssh-key=%s' % aws_ssh,
-        '--kops-ssh-user=%s' % ssh_user,
-    ])
+    runner_args.extend(
+        [
+            f'--kops-cluster={cluster}',
+            f'--kops-state={args.kops_state}',
+            f'--kops-nodes={args.kops_nodes}',
+            f'--kops-ssh-key={aws_ssh}',
+            f'--kops-ssh-user={ssh_user}',
+        ]
+    )
 
 
 def set_up_aws(workspace, args, mode, cluster, runner_args):
@@ -357,40 +356,43 @@ def set_up_aws(workspace, args, mode, cluster, runner_args):
     regions = ','.join([zone[:-1] for zone in zones.split(',')])
 
     mode.add_environment(
-      'AWS_PROFILE=%s' % profile,
-      'AWS_DEFAULT_PROFILE=%s' % profile,
-      'KOPS_REGIONS=%s' % regions,
+        f'AWS_PROFILE={profile}',
+        f'AWS_DEFAULT_PROFILE={profile}',
+        f'KOPS_REGIONS={regions}',
     )
 
+
     if args.aws_cluster_domain:
-        cluster = '%s.%s' % (cluster, args.aws_cluster_domain)
+        cluster = f'{cluster}.{args.aws_cluster_domain}'
 
     # AWS requires a username (and it varies per-image)
     ssh_user = args.kops_ssh_user or 'admin'
 
-    runner_args.extend([
-        '--kops-cluster=%s' % cluster,
-        '--kops-zones=%s' % zones,
-        '--kops-state=%s' % args.kops_state,
-        '--kops-nodes=%s' % args.kops_nodes,
-        '--kops-ssh-key=%s' % aws_ssh,
-        '--kops-ssh-user=%s' % ssh_user,
-    ])
+    runner_args.extend(
+        [
+            f'--kops-cluster={cluster}',
+            f'--kops-zones={zones}',
+            f'--kops-state={args.kops_state}',
+            f'--kops-nodes={args.kops_nodes}',
+            f'--kops-ssh-key={aws_ssh}',
+            f'--kops-ssh-user={ssh_user}',
+        ]
+    )
+
     # TODO(krzyzacy):Remove after retire kops-e2e-runner.sh
     mode.add_aws_runner()
 
 def read_gcs_path(gcs_path):
     """reads a gcs path (gs://...) by HTTP GET to storage.googleapis.com"""
     link = gcs_path.replace('gs://', 'https://storage.googleapis.com/')
-    loc = urllib2.urlopen(link).read()
-    print >>sys.stderr, "Read GCS Path: %s" % loc
-    return loc
+    link = gcs_path.replace('gs://', 'https://storage.googleapis.com/')
+    return urllib2.urlopen(link).read()
 
 def get_shared_gcs_path(gcs_shared, use_shared_build):
     """return the shared path for this set of jobs using args and $PULL_REFS."""
     build_file = ''
     if use_shared_build:
-        build_file += use_shared_build + '-'
+        build_file += f'{use_shared_build}-'
     build_file += 'build-location.txt'
     return os.path.join(gcs_shared, os.getenv('PULL_REFS', ''), build_file)
 

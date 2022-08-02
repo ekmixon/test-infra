@@ -51,7 +51,7 @@ def check(*cmd):
 def retry(func, times=5):
     """call func until it returns true at most times times"""
     success = False
-    for _ in range(0, times):
+    for _ in range(times):
         success = func()
         if success:
             return success
@@ -81,8 +81,8 @@ def get_git_cache(k8s):
 def branch_to_tag(branch):
     verify_branch = re.match(r'release-(\d+\.\d+)', branch)
     key = 'default'
-    if verify_branch and verify_branch.group(1) in VERSION_TAG:
-        key = verify_branch.group(1)
+    if verify_branch and verify_branch[1] in VERSION_TAG:
+        key = verify_branch[1]
     return VERSION_TAG[key]
 
 
@@ -94,9 +94,9 @@ def main(branch, script, force, on_prow, exclude_typecheck, exclude_godep, exclu
     exclude_typecheck = 'y' if exclude_typecheck else 'n'
     exclude_godep = 'y' if exclude_godep else 'n'
     exclude_files_remake = 'y' if exclude_files_remake else 'n'
-    artifacts = '%s/_artifacts' % os.environ['WORKSPACE']
+    artifacts = f"{os.environ['WORKSPACE']}/_artifacts"
     k8s = os.getcwd()
-    if not os.path.basename(k8s) == 'kubernetes':
+    if os.path.basename(k8s) != 'kubernetes':
         raise ValueError(k8s)
 
     check('rm', '-rf', '.gsutil')
@@ -104,7 +104,7 @@ def main(branch, script, force, on_prow, exclude_typecheck, exclude_godep, exclu
     uri = 'https://github.com/kubernetes/kubernetes.git'
 
     current_remotes = check_output('git', 'remote')
-    if re.search('^%s$' % remote, current_remotes, flags=re.MULTILINE):
+    if re.search(f'^{remote}$', current_remotes, flags=re.MULTILINE):
         check('git', 'remote', 'remove', remote)
     check('git', 'remote', 'add', remote, uri)
     check('git', 'remote', 'set-url', '--push', remote, 'no_push')
@@ -119,42 +119,78 @@ def main(branch, script, force, on_prow, exclude_typecheck, exclude_godep, exclu
         # however these paths are brittle enough as is...
         git_cache = get_git_cache(k8s)
         cmd = [
-            'docker', 'run', '--rm=true', '--privileged=true',
-            '-v', '/var/run/docker.sock:/var/run/docker.sock',
-            '-v', '/etc/localtime:/etc/localtime:ro',
-            '-v', '%s:/go/src/k8s.io/kubernetes' % k8s,
+            'docker',
+            'run',
+            '--rm=true',
+            '--privileged=true',
+            '-v',
+            '/var/run/docker.sock:/var/run/docker.sock',
+            '-v',
+            '/etc/localtime:/etc/localtime:ro',
+            '-v',
+            f'{k8s}:/go/src/k8s.io/kubernetes',
         ]
+
         if git_cache is not None:
-            cmd.extend(['-v', '%s:%s' % (git_cache, git_cache)])
-        cmd.extend([
-            '-v', '/workspace/k8s.io/:/workspace/k8s.io/',
-            '-v', '%s:/workspace/artifacts' % artifacts,
-            '-e', 'KUBE_FORCE_VERIFY_CHECKS=%s' % force,
-            '-e', 'KUBE_VERIFY_GIT_BRANCH=%s' % branch,
-            '-e', 'EXCLUDE_TYPECHECK=%s' % exclude_typecheck,
-            '-e', 'EXCLUDE_FILES_REMAKE=%s' % exclude_files_remake,
-            '-e', 'EXCLUDE_GODEP=%s' % exclude_godep,
-            '-e', 'REPO_DIR=%s' % k8s,  # hack/lib/swagger.sh depends on this
-            '--tmpfs', '/tmp:exec,mode=1777',
-            'gcr.io/k8s-testimages/kubekins-test:%s' % tag,
-            'bash', '-c', 'cd kubernetes && %s' % script,
-        ])
+            cmd.extend(['-v', f'{git_cache}:{git_cache}'])
+        cmd.extend(
+            [
+                '-v',
+                '/workspace/k8s.io/:/workspace/k8s.io/',
+                '-v',
+                f'{artifacts}:/workspace/artifacts',
+                '-e',
+                f'KUBE_FORCE_VERIFY_CHECKS={force}',
+                '-e',
+                f'KUBE_VERIFY_GIT_BRANCH={branch}',
+                '-e',
+                f'EXCLUDE_TYPECHECK={exclude_typecheck}',
+                '-e',
+                f'EXCLUDE_FILES_REMAKE={exclude_files_remake}',
+                '-e',
+                f'EXCLUDE_GODEP={exclude_godep}',
+                '-e',
+                f'REPO_DIR={k8s}',
+                '--tmpfs',
+                '/tmp:exec,mode=1777',
+                f'gcr.io/k8s-testimages/kubekins-test:{tag}',
+                'bash',
+                '-c',
+                f'cd kubernetes && {script}',
+            ]
+        )
+
         check(*cmd)
     else:
         check(
-            'docker', 'run', '--rm=true', '--privileged=true',
-            '-v', '/var/run/docker.sock:/var/run/docker.sock',
-            '-v', '/etc/localtime:/etc/localtime:ro',
-            '-v', '%s:/go/src/k8s.io/kubernetes' % k8s,
-            '-v', '%s:/workspace/artifacts' % artifacts,
-            '-e', 'KUBE_FORCE_VERIFY_CHECKS=%s' % force,
-            '-e', 'KUBE_VERIFY_GIT_BRANCH=%s' % branch,
-            '-e', 'EXCLUDE_TYPECHECK=%s' % exclude_typecheck,
-            '-e', 'EXCLUDE_FILES_REMAKE=%s' % exclude_files_remake,
-            '-e', 'EXCLUDE_GODEP=%s' % exclude_godep,
-            '-e', 'REPO_DIR=%s' % k8s,  # hack/lib/swagger.sh depends on this
-            'gcr.io/k8s-testimages/kubekins-test:%s' % tag,
-            'bash', '-c', 'cd kubernetes && %s' % script,
+            'docker',
+            'run',
+            '--rm=true',
+            '--privileged=true',
+            '-v',
+            '/var/run/docker.sock:/var/run/docker.sock',
+            '-v',
+            '/etc/localtime:/etc/localtime:ro',
+            '-v',
+            f'{k8s}:/go/src/k8s.io/kubernetes',
+            '-v',
+            f'{artifacts}:/workspace/artifacts',
+            '-e',
+            f'KUBE_FORCE_VERIFY_CHECKS={force}',
+            '-e',
+            f'KUBE_VERIFY_GIT_BRANCH={branch}',
+            '-e',
+            f'EXCLUDE_TYPECHECK={exclude_typecheck}',
+            '-e',
+            f'EXCLUDE_FILES_REMAKE={exclude_files_remake}',
+            '-e',
+            f'EXCLUDE_GODEP={exclude_godep}',
+            '-e',
+            f'REPO_DIR={k8s}',
+            f'gcr.io/k8s-testimages/kubekins-test:{tag}',
+            'bash',
+            '-c',
+            f'cd kubernetes && {script}',
         )
 
 

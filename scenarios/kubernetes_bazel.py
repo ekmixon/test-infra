@@ -45,7 +45,7 @@ class Bazel(object):
     def _commands(self, cmd, *args, **kw):
         commands = ['bazel', cmd]
         if self.cfgs and kw.get('config', True):
-            commands.extend(['--config=%s' % c for c in self.cfgs])
+            commands.extend([f'--config={c}' for c in self.cfgs])
         if args:
             commands.extend(args)
         return commands
@@ -75,16 +75,8 @@ class Bazel(object):
             # when specifying build targets
             selection = selected_pkgs[0]
             for pkg in selected_pkgs[1:]:
-                if pkg.startswith('-'):
-                    selection += ' '+pkg
-                else:
-                    selection += ' +'+pkg
-
-
-        changes = '//...'
-        if changed_pkgs:
-            changes = 'set(%s)' % ' '.join(changed_pkgs)
-
+                selection += f' {pkg}' if pkg.startswith('-') else f' +{pkg}'
+        changes = f"set({' '.join(changed_pkgs)})" if changed_pkgs else '//...'
         query_pat = 'kind(%s, rdeps(%s, %s)) except attr(\'tags\', \'manual\', //...)'
         return [target for target in self.check_output(
             'query',
@@ -128,12 +120,12 @@ def get_version():
 def get_changed(base, pull):
     """Get affected packages between base sha and pull sha."""
     diff = check_output(
-        'git', 'diff', '--name-only',
-        '--diff-filter=d', '%s...%s' % (base, pull))
+        'git', 'diff', '--name-only', '--diff-filter=d', f'{base}...{pull}'
+    )
+
     return check_output(
-        'bazel', 'query',
-        '--noshow_progress',
-        'set(%s)' % diff).split('\n')
+        'bazel', 'query', '--noshow_progress', f'set({diff})'
+    ).split('\n')
 
 def clean_file_in_dir(dirname, filename):
     """Recursively remove all file with filename in dirname."""
